@@ -57,6 +57,7 @@ import replicatorg.app.Base;
 import replicatorg.app.MachineController;
 import replicatorg.app.ui.controlpanel.ExtruderPanel;
 import replicatorg.app.ui.controlpanel.Jog3AxisPanel;
+import replicatorg.app.ui.controlpanel.ScriptPanel;
 import replicatorg.drivers.Driver;
 import replicatorg.machine.MachineListener;
 import replicatorg.machine.MachineProgressEvent;
@@ -72,6 +73,8 @@ public class ControlPanelWindow extends JFrame implements
 	static final long serialVersionUID = -3494348039028986935L;
 
 	protected JPanel mainPanel;
+
+	protected ScriptPanel scriptPanel;
 
 	protected Jog3AxisPanel jogPanel;
 
@@ -119,6 +122,7 @@ public class ControlPanelWindow extends JFrame implements
 		// create all our GUI interfaces
 		mainPanel = new JPanel();
 		mainPanel.setLayout(new MigLayout());
+		mainPanel.add(createScriptPanel());
 		mainPanel.add(createJogPanel(),"split 2,growy,flowy");
 		mainPanel.add(createActivationPanel(),"growx");
 		mainPanel.add(createToolsPanel(),"growy");
@@ -175,6 +179,17 @@ public class ControlPanelWindow extends JFrame implements
 		return tf;
 	}
 
+	/**
+	 *  The script panel contains user created scripts for various things.
+	 */
+	protected JComponent createScriptPanel() {
+		scriptPanel = new ScriptPanel(machine);
+		return scriptPanel;
+	}
+
+	/**
+	 * The jog panel is used to move the platform around.
+	 */
 	protected JComponent createJogPanel() {
 		jogPanel = new Jog3AxisPanel(machine);
 		return jogPanel;
