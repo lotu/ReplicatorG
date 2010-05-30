@@ -71,10 +71,12 @@ public class MachineController {
 	private void setState(MachineState state) {
 		MachineState oldState = this.state;
 		this.state = state;
-		emitStateChange(oldState,state);
-		// wake up machine thread
-		synchronized(machineThread) {
-			machineThread.notify();
+		if (!oldState.equals(state)) {
+			emitStateChange(oldState,state);
+			// wake up machine thread
+			synchronized(machineThread) {
+				machineThread.notify();
+			}
 		}
 	}
 
@@ -416,13 +418,6 @@ public class MachineController {
 			synchronized(this) { notify(); }
 		}
 
-		public void autoscan() {
-			if (state.getState() == MachineState.State.CONNECTING ||
-				state.getState() == MachineState.State.NOT_ATTACHED) {
-				setState(MachineState.State.AUTO_SCAN);
-			}
-		}
-		
 		private boolean running = true;
 		
 		public void run() {
@@ -458,14 +453,6 @@ public class MachineController {
 						}
 					} else if (state.getState() == MachineState.State.PLAYBACK) {
 						buildRemoteInternal(remoteName);
-					} else if (state.getState() == MachineState.State.AUTO_SCAN) {
-						driver.autoscan();
-						if (driver.isInitialized()) {
-							readName();
-							setState(MachineState.State.READY);
-						} else {
-							setState(MachineState.State.NOT_ATTACHED);
-						}
 					} else if (state.getState() == MachineState.State.CONNECTING) {
 						driver.initialize();
 						if (driver.isInitialized()) {
@@ -479,6 +466,7 @@ public class MachineController {
 					} else {
 						synchronized(this) {
 							if (state.getState() == MachineState.State.READY ||
+									state.getState() == MachineState.State.NOT_ATTACHED ||
 									state.getState() == MachineState.State.PLAYBACK ||
 									state.isPaused()) {
 								wait();
@@ -798,11 +786,6 @@ public class MachineController {
 		machineThread.connect();
 	}
 
-	public void autoscan() {
-		assert machineThread != null;
-		machineThread.autoscan();
-	}
-	
 	synchronized public boolean isPaused() {
 		return getMachineState().isPaused();
 	}

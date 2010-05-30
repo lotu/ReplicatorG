@@ -8,6 +8,7 @@ from __future__ import absolute_import
 import __init__
 
 import cStringIO
+import sys
 from skeinforge_tools.skeinforge_utilities import gcodec
 import os
 import webbrowser
@@ -74,8 +75,8 @@ def getFileTextGivenDirectoryFileName( directory, fileName ):
 	"Get the entire text of a file with the given file name in the given directory."
 	absoluteFilePath = os.path.join( directory, fileName )
 	return gcodec.getFileText( absoluteFilePath )
-
-preferencesDirectory = os.path.join( os.path.expanduser( '~' ), '.skeinforge' )
+	
+preferencesDirectory = os.path.join( os.path.abspath(os.path.dirname(sys.argv[0])), 'prefs/skeinforge' )
 
 def getPreferencesDirectoryPath():
 	"Get the preferences directory path, which is the home directory joined with .skeinforge."
@@ -95,6 +96,16 @@ def getPreferencesFilePath( fileName ):
 	except OSError:
 		pass
 	return os.path.join( directoryName, fileName )
+	
+def setStartFile(fileName):
+	"Get the preferences directory path, which is the home directory joined with .skeinforge."
+	global startFile
+	startFile = fileName
+	
+def setEndFile(fileName):
+	"Get the preferences directory path, which is the home directory joined with .skeinforge."
+	global endFile
+	endFile = fileName
 
 def readPreferences( archivablePreferences ):
 	"Set an archive to the preferences read from a file."

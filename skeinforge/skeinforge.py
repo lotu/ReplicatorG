@@ -231,8 +231,10 @@ from skeinforge_tools.skeinforge_utilities import gcodec
 from skeinforge_tools.skeinforge_utilities import preferences
 from skeinforge_tools.skeinforge_utilities import interpret
 from skeinforge_tools import polyfile
+from optparse import OptionParser
 import cStringIO
 import sys
+import os
 
 
 __author__ = "Enrique Perez (perez_enrique@yahoo.com)"
@@ -275,7 +277,6 @@ def writeOutput( fileName = '' ):
 					pluginModule.writeOutput( fileName )
 				return
 
-
 class SkeinforgePreferences:
 	"A class to handle the skeinforge preferences."
 	def __init__( self ):
@@ -302,11 +303,29 @@ class SkeinforgePreferences:
 		fileNames = polyfile.getFileOrDirectoryTypesUnmodifiedGcode( self.fileNameInput.value, interpret.getImportPluginFilenames(), self.fileNameInput.wasCancelled )
 		for fileName in fileNames:
 			writeOutput( fileName )
-
+			
 def main():
 	"Display the skeinforge dialog."
-	if len( sys.argv ) > 1:
-		writeOutput( ' '.join( sys.argv[ 1 : ] ) )
+	parser = OptionParser()
+	parser.add_option("-p", "--prefdir", help="set path to preference directory",
+                  action="store", type="string", dest="preferencesDirectory")
+        parser.add_option("-s", "--start", help="set start file to use",
+                  action="store", type="string", dest="startFile")
+        parser.add_option("-e", "--end", help="set end file to use",
+                  action="store", type="string", dest="endFile")
+        (options, args) = parser.parse_args()
+	if options.preferencesDirectory:
+		preferences.setPreferencesDirectoryPath(options.preferencesDirectory)
+	if options.startFile:
+		preferences.setStartFile(options.startFile)
+	else:
+		preferences.setStartFile('start.txt')
+	if options.endFile:
+		preferences.setEndFile(options.endFile)
+	else:
+		preferences.setEndFile('end.txt')
+	if len( args ) > 0:
+		writeOutput( ' '.join(args) )
 	else:
 		preferences.displayDialog( SkeinforgePreferences() )
 

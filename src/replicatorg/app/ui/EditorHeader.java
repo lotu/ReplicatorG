@@ -28,11 +28,10 @@ package replicatorg.app.ui;
 import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.Graphics;
-import java.awt.Rectangle;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.awt.image.BufferedImage;
 
-import javax.swing.AbstractButton;
 import javax.swing.ButtonGroup;
 import javax.swing.JComponent;
 import javax.swing.JLabel;
@@ -45,6 +44,7 @@ import javax.swing.plaf.basic.BasicButtonUI;
 import net.miginfocom.swing.MigLayout;
 import replicatorg.app.Base;
 import replicatorg.model.Build;
+import replicatorg.model.BuildElement;
 
 /**
  * Sketch tabs at the top of the editor window.
@@ -72,17 +72,46 @@ public class EditorHeader extends JComponent implements ActionListener {
 	}
 	
 	private class TabButtonUI extends BasicButtonUI {
-		protected void paintText(Graphics g,AbstractButton b,Rectangle textRect,String text) {
+		public void paint(Graphics g,JComponent c) {
+			initTabImages();
+			TabButton b = (TabButton)c;
+			BufferedImage img = b.isSelected()?selectedTabBg:regularTabBg;
+			final int partWidth = img.getWidth()/3;
+			int height = img.getHeight();
+			final int x = 0;
+			final int y = 0;
+			final int w = c.getWidth();
+			// Draw left side of tab
+			g.drawImage(img, x, y, x+partWidth, y+height, 0, 0, partWidth, height, null);
+			final int rightTabStart = img.getWidth()-partWidth;
+			// Draw center of tab
+			g.drawImage(img, x+partWidth, y, x+w-partWidth, y+height, partWidth, 0, rightTabStart, height, null);
+			// Draw right side of tab
+			g.drawImage(img, x+w-partWidth, y, x+w, y+height, rightTabStart, 0, img.getWidth(), height, null);
 			b.setForeground(b.isSelected()?textSelectedColor:textUnselectedColor);
-			super.paintText(g,b,textRect,text);
+			super.paint(g,c);
 		}
 	}
+
+	static BufferedImage selectedTabBg;
+	static BufferedImage regularTabBg;
 	
+	protected void initTabImages() {
+		if (selectedTabBg == null) {
+			selectedTabBg = Base.getImage("images/tab-selected.png", this);
+		}
+		if (regularTabBg == null) {
+			regularTabBg = Base.getImage("images/tab-regular.png", this);
+		}
+	}
+
+
 	private class TabButton extends JToggleButton {
+		
 		public TabButton(String text) {
 			super(text);
 			setUI(new TabButtonUI());
-			setBorder(new EmptyBorder(0,0,0,0));
+			setBorder(new EmptyBorder(6,8,8,10));
 			tabGroup.add(this);
 			addActionListener(EditorHeader.this);
 		}
@@ -101,6 +130,7 @@ public class EditorHeader extends JComponent implements ActionListener {
 	int menuRight;
 
 	public EditorHeader(MainWindow mainWindow) {
+		initTabImages();
 		setLayout(new MigLayout("gap 15"));
 		this.editor = mainWindow;
 
@@ -117,6 +147,13 @@ public class EditorHeader extends JComponent implements ActionListener {
 		codeButton.setVisible(build.getCode() != null);
 		modelButton.setVisible(build.getModel() != null);
 		titleLabel.setText(build.getName());
+		if (build.getOpenedElement() != null) {
+			if (build.getOpenedElement().getType() == BuildElement.Type.GCODE) {
+				codeButton.doClick();
+			} else {
+				modelButton.doClick();
+			}
+		}
 	}
 	
 	public void paintComponent(Graphics g) {

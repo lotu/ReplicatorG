@@ -121,11 +121,10 @@ public class ControlPanelWindow extends JFrame implements
 
 		// create all our GUI interfaces
 		mainPanel = new JPanel();
-		mainPanel.setLayout(new MigLayout());
 		mainPanel.add(createScriptPanel());
-		mainPanel.add(createJogPanel(),"split 2,growy,flowy");
-		mainPanel.add(createActivationPanel(),"growx");
-		mainPanel.add(createToolsPanel(),"growy");
+		mainPanel.add(createJogPanel(),"split 2,flowy");
+		mainPanel.add(createActivationPanel(),"flowy");
+		mainPanel.add(createToolsPanel(),"spany,grow");
 		add(mainPanel);
 
 		// add our listener hooks.
@@ -202,19 +201,20 @@ public class ControlPanelWindow extends JFrame implements
 	protected JComponent createActivationPanel() {
 		JPanel activationPanel = new JPanel();
 		activationPanel.setBorder(BorderFactory
-				.createTitledBorder("Activation Controls"));
+				.createTitledBorder("Stepper Motor Control"));
 		activationPanel.setLayout(new BoxLayout(activationPanel,
 				BoxLayout.LINE_AXIS));
 
 		// / Enable/disable steppers.
-		JButton enableButton = new JButton("Enable steppers");
+		JButton enableButton = new JButton("Enable");
 		enableButton.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent e) {
 				driver.enableDrives();
 			}
 		});
 		activationPanel.add(enableButton);
-		JButton disableButton = new JButton("Disable steppers");
+
+		JButton disableButton = new JButton("Disable");
 		disableButton.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent e) {
 				driver.disableDrives();
