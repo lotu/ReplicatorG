@@ -8,6 +8,8 @@ import java.awt.event.FocusListener;
 import java.text.DecimalFormat;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.ArrayList;
+import java.io.*;
 
 import javax.swing.BorderFactory;
 import javax.swing.JButton;
@@ -64,36 +66,45 @@ public class ScriptPanel extends JPanel implements ActionListener
 		return button;
 	}
 
+	/**
+	 * The Gcode that will be executed for the various buttons.
+	 */
+	private ArrayList<ArrayList<String>> comands = new ArrayList<ArrayList<String>>();
+
 	public ScriptPanel(MachineController machine) {
 		this.machine = machine;
 		this.driver = machine.getDriver();
 		setLayout(new MigLayout());
 		
-		JButton xPlusButton = createScriptButton("X+", "Script X axis in positive direction");
-		JButton xMinusButton = createScriptButton("X-", "Script X axis in negative direction");
-		JButton xCenterButton = createScriptButton("<html><center>Center<br/>X", "Script X axis to the origin","Center X");
-		JButton yPlusButton = createScriptButton("Y+", "Script Y axis in positive direction");
-		JButton yMinusButton = createScriptButton("Y-", "Script Y axis in negative direction");
-		JButton yCenterButton = createScriptButton("<html><center>Center<br/>Y", "Script Y axis to the origin","Center Y");
-		JButton zPlusButton = createScriptButton("Z+", "Script Z axis in positive direction");
-		JButton zMinusButton = createScriptButton("Z-", "Script Z axis in negative direction");
-		JButton zCenterButton = createScriptButton("<html><center>Center<br/>Z", "Script Z axis to the origin","Center Z");
-		JButton zeroButton = createScriptButton("<html><center>Set<br/>zero","Mark Current Position as Zero (0,0,0)","Zero");
-
-		JPanel xyzPanel = new JPanel(new MigLayout("","[]0[]","[]0[]"));
-        xyzPanel.add(zCenterButton, "split 3,flowy,gap 0 0 0 0");
-		xyzPanel.add(xMinusButton, "gap 0 0 0 0");
-        xyzPanel.add(yCenterButton);
-		xyzPanel.add(yPlusButton, "split 3,flowy,gap 0 0 0 0");
-		xyzPanel.add(zeroButton,"gap 0 0 0 0");
-		xyzPanel.add(yMinusButton);
-		xyzPanel.add(xPlusButton,"split 2, flowy, aligny bottom, gap 0 0 0 0, gapafter 10");
-        xyzPanel.add(xCenterButton);
-		xyzPanel.add(zPlusButton, "split 2,flowy,gap 0 0 0 0");
-		xyzPanel.add(zMinusButton);
+		JPanel buttonPanel = new JPanel(new MigLayout("","[]0[]","[]0[]"));
+		
+		try {
+			BufferedReader script = new BufferedReader( new FileReader("/home/hbullen/.replicator_scripts"));
+			String line;
+			int count = 0;
+			while ((line = script.readLine()) != null ) {
+				String fmt = "";  // default button format
+				if ( (count + 1) % 4 == 0 ) // every 4th button but not the first
+					fmt = "wrap";
+				buttonPanel.add( createScriptButton( line, script.readLine(), String.valueOf(count) ), fmt);
+				String cmd; 
+				int i = 0;
+				comands.add( new ArrayList<String>() );
+				while ((cmd = script.readLine()) != null ){
+					if ( cmd.equalsIgnoreCase("(END)") )
+						break;
+					comands.get(count).add(cmd);
+					i++;
+				}
+				count++;
+			}
+		} catch ( IOException e )
+		{
+			// file not found or something
+		}
 
 		// add it all to our jog panel
-		add(xyzPanel);
+		add(buttonPanel);
 
 		// add jog panel border and stuff.
 		setBorder(BorderFactory.createTitledBorder("Script Controls"));
@@ -103,26 +114,19 @@ public class ScriptPanel extends JPanel implements ActionListener
 	public void actionPerformed(ActionEvent e) {
 		Point3d current = driver.getCurrentPosition();
 		String s = e.getActionCommand();
+		int c = Integer.parseInt( s );
 
-		if (s.equals("X+")) {
+		if (comands.size() > c) {
 			try {
-				driver.parse( "G21" );
-				driver.execute();
-				driver.parse( "G90" );
-				driver.execute();
-				driver.parse( "G0 X10 Z10");
-				driver.execute();
-				driver.parse( "G1 X20 Y10");
-				driver.execute();
+				// run thru comands and execute one by one
+				for( int i = 0 ; i < comands.get(c).size(); i++) {
+					driver.parse( comands.get(c).get(i) );
+					driver.execute();
+				}
 			} catch (Exception exe )
 			{
 				Base.logger.warning("Failed doing: " + s);
 			}
-		} else if (s.equals("X-")) {
-			current.x -= 10;
-
-			driver.setFeedrate(580);
-			driver.queuePoint(current);
 		} else
 			Base.logger.warning("Unknown Action Event: " + s);
 		
