@@ -9,6 +9,7 @@ import javax.swing.SwingConstants;
 import javax.swing.SwingUtilities;
 
 import net.miginfocom.swing.MigLayout;
+import replicatorg.app.Base;
 import replicatorg.model.Build;
 import replicatorg.model.BuildCode;
 
@@ -23,9 +24,9 @@ public class ToolpathGeneratorThread extends Thread {
 		
 		public ProgressDialog(JComponent parent, Build build) { 
 			super(SwingUtilities.getWindowAncestor(parent));
-			Icon icon = new ImageIcon("images/slicing-icon.png");
+			Icon icon = new ImageIcon(Base.getImage("images/slicing-icon.png",this));
 			setTitle("Generating toolpath for "+build.getName());
-			topLabel = new JLabel("Generating toolpath for "+build.getName()+"...",icon,SwingConstants.LEFT);
+			topLabel = new JLabel("Generating toolpath for "+build.getName(),icon,SwingConstants.LEFT);
 			progressLabel = new JLabel("Launching plugin...");
 			setLayout(new MigLayout());
 			add(topLabel,"wrap");
@@ -43,6 +44,7 @@ public class ToolpathGeneratorThread extends Thread {
 		}
 		
 		public void updateGenerator(final String message) {
+			System.err.flush();
 			SwingUtilities.invokeLater(new Runnable() {
 				public void run() {
 					progressLabel.setText(message);
@@ -72,14 +74,13 @@ public class ToolpathGeneratorThread extends Thread {
 			SwingUtilities.invokeLater(new Runnable() { public void run() {
 				synchronized (pdHandle) {
 					if (!pdHandle.isDone()) {
-						System.err.println("showing tp gen dialog");
 						pdHandle.pack();
 						pdHandle.setVisible(true);
 					}
 				}
 			}});
 		}
-		System.err.println("begin tp gen ");
+		Base.logger.info("Beginning toolpath generation.");
 		BuildCode code = generator.generateToolpath();
 		if (progressDialog != null) {
 			synchronized (progressDialog) { 
