@@ -120,10 +120,10 @@ public class ControlPanelWindow extends JFrame implements
 		setJMenuBar(createMenuBar());
 
 		// create all our GUI interfaces
-		mainPanel = new JPanel();
-		mainPanel.add(createScriptPanel());
-		mainPanel.add(createJogPanel(),"split 2,flowy");
-		mainPanel.add(createActivationPanel(),"flowy");
+		mainPanel = new JPanel(new MigLayout());
+		mainPanel.add(createJogPanel(),"split 3,flowy");
+		mainPanel.add(createScriptPanel(), "growx");
+		mainPanel.add(createActivationPanel(),"growx");
 		mainPanel.add(createToolsPanel(),"spany,grow");
 		add(mainPanel);
 

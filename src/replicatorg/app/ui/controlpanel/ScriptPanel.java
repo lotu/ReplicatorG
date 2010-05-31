@@ -84,7 +84,7 @@ public class ScriptPanel extends JPanel implements ActionListener
 			int count = 0;
 			while ((line = script.readLine()) != null ) {
 				String fmt = "";  // default button format
-				if ( (count + 1) % 4 == 0 ) // every 4th button but not the first
+				if ( (count + 1) % 6 == 0 ) // every 4th button but not the first
 					fmt = "wrap";
 				buttonPanel.add( createScriptButton( line, script.readLine(), String.valueOf(count) ), fmt);
 				String cmd; 
