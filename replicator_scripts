@@ -1,0 +1,95 @@
+<html><center>Go to<br/>origin
+Move printhead to touch center of build platform
+G21 (Metric FTW)
+G90
+G0 X0 Y0 Z0 
+(END)
+<html><center>Go to<br/>build pos.
+Move printhead to typical build postion
+G21 (Metric FTW)
+G90
+G0 X0 Y0 Z15
+(end)
+<html><center>Raise<br/>Print Head
+Move printhead to typical build postion
+G21 (Metric FTW)
+G90
+G0 X0 Y0 Z15
+(end)
+<html><center>Go to<br/>end pos.
+Move platform to front of makerbot for easy removal
+G21 (Metric FTW)
+G91
+G1 Z1
+G90
+G0 X0 Y-45
+(END)
+<html><center>Center<br/>build platform
+Move the build platfrom (only) to the origin.
+G21 (Metric FTW)
+G90
+G0 X0 Y0 
+(END)
+<html><center>Touch<br/>build platform
+Move the print head (only) to touch the build platform (Z=0).
+G21 (Metric FTW)
+G90
+G0 Z0
+(END)
+<html><center>Go to<br/>repair pos.
+Move print head all the way up. (Make sure z axis origin is set correctlly.)
+G21 (Metric FTW)
+G90
+G0 Z110
+(END)
+<html><center>Test<br/>print head
+Do a test extrusion like at the begging of many builds
+M104 S242 T0 (Temperature to 242 celsius max my cupcake goes)
+G21 (Metric FTW)
+G90 (Absolute Positioning)
+( You now must set zero zero your self. )
+( But you don't have to re zero between builds
+( G92 X0 Y0 Z0 You are now at 0,0,0)
+(You have failed me for the last time, MakerBot)
+G0 X0 Y0 Z15 (Move up for test extrusion)
+M108 S255 (Extruder speed = max)
+M6 T0 (Wait for tool to heat up)
+G04 P5000 (Wait 5 seconds)
+M101 (Extruder on, forward)
+G04 P5000 (Wait 5 seconds)
+M103 (Extruder off)
+(end)
+<html><center>Eject<br/>filament
+Remove the filament
+M104 S242 T0 (Temperature to 242 celsius max my cupcake goes)
+M108 S255 (Extruder speed = max)
+M6 T0 (Wait for tool to heat up)
+G04 P5000 (Wait 5 seconds)
+M102 (Extruder on, backwards)
+G04 P60000 (Wait 60 seconds)
+M103 (Extruder off)
+(end)
+<html><center>Pull in<br/>filament
+Insert a new filament.  Make sure to help filiament after motor starts.
+M104 S242 T0 (Temperature to 242 celsius max my cupcake goes)
+M108 S255 (Extruder speed = max)
+M6 T0 (Wait for tool to heat up)
+G04 P5000 (Wait 5 seconds)
+M101 (Extruder on, forward)
+G04 P65000 (Wait 65 seconds)
+M103 (Extruder off)
+(end)
+<html><center>Clock-<br/>wise<br/>circle.
+Make buildplaform perfrome a clockwise circle.  If it dosen't one or both of the axis are reversed. (Make sure origin has been correctlly set)
+G21 (Metric FTW)
+G90
+G0 X0 Y-35
+G0 X-24.7 Y-24.7
+G0 X-35 Y0
+G0 X-24.7 Y24.7
+G0 X0 Y35
+G0 X24.7 Y24.7
+G0 X35 Y0
+G0 X24.7 Y-24.7
+G0 X0 Y-35
+(END)

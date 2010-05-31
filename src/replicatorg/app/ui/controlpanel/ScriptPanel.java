@@ -79,7 +79,7 @@ public class ScriptPanel extends JPanel implements ActionListener
 		JPanel buttonPanel = new JPanel(new MigLayout("","[]0[]","[]0[]"));
 		
 		try {
-			BufferedReader script = new BufferedReader( new FileReader("/home/hbullen/.replicator_scripts"));
+			BufferedReader script = new BufferedReader( new FileReader("replicator_scripts"));
 			String line;
 			int count = 0;
 			while ((line = script.readLine()) != null ) {

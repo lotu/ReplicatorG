@@ -112,7 +112,7 @@
       <javaproperty name="replicatorg.app-resources" value="$APP_PACKAGE/Contents/Resources"/>
     </jarbundler>
     <copy todir="${target.dir}">
-      <filelist dir="." files="license.txt,readme.txt,todo.txt"/>
+      <filelist dir="." files="license.txt,readme.txt,todo.txt,replicator_scripts"/>
       <fileset dir="${dist.dir}" includes="drivers/*.dmg"/>
     </copy>
     <copy todir="${target.dir}/tools">
@@ -140,7 +140,7 @@
   <target name="dist-common" depends="jar" description="Builds files common to all RegplicatorG distributions">
     <mkdir dir="${target.dir}"/>
     <copy todir="${target.dir}">
-      <filelist dir="." files="license.txt,readme.txt,todo.txt"/>
+      <filelist dir="." files="license.txt,readme.txt,todo.txt,replicator_scripts"/>
       <fileset dir="${build.dir}/shared" includes="lib/*.jar"/>
     </copy>
     <copy file="machines.xml.dist" tofile="${target.dir}/machines.xml"/>
