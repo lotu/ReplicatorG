@@ -104,9 +104,13 @@ public class MainButtonPanel extends BGPanel implements MachineListener, ActionL
 					g.fillRect(0,0,b.width,b.height);
 					getRolloverIcon().paintIcon(this, g, 0, 0);
 				} else {
+					g.setColor(BACK_COLOR);
+					g.fillRect(0,0,b.width,b.height);
 					getIcon().paintIcon(this,g,0,0);
 				}
 			} else {
+				g.setColor(BACK_COLOR);
+				g.fillRect(0,0,b.width,b.height);
 				getDisabledIcon().paintIcon(this, g, 0, 0);
 			}
 		}
@@ -136,6 +140,7 @@ public class MainButtonPanel extends BGPanel implements MachineListener, ActionL
 
 	JLabel statusLabel;
 
+	final static Color BACK_COLOR = new Color(0x5F, 0x73, 0x25); 
 	MainButton simButton, pauseButton, stopButton;
 	MainButton buildButton, resetButton, cpButton;
 	MainButton disconnectButton, connectButton;
@@ -149,7 +154,7 @@ public class MainButtonPanel extends BGPanel implements MachineListener, ActionL
 		// hardcoding new blue color scheme for consistency with images,
 		// see EditorStatus.java for details.
 		// bgcolor = Preferences.getColor("buttons.bgcolor");
-		setBackground(new Color(0x5F, 0x73, 0x25));
+		setBackground(BACK_COLOR);
 
 		Font statusFont = Base.getFontPref("buttons.status.font","SansSerif,plain,12");
 		Color statusColor = Base.getColorPref("buttons.status.color","#FFFFFF");
@@ -239,21 +244,20 @@ public class MainButtonPanel extends BGPanel implements MachineListener, ActionL
 			}
 		});
 	}
-
-	public void machineStateChangedInternal(final MachineStateChangeEvent evt) {
-		MachineState s = evt.getState();
+	
+	private void updateFromState(final MachineState s, final MachineController machine) {
 		boolean ready = s.isReady();
 		boolean building = s.isBuilding();
 		boolean paused = s.isPaused();
-		MachineController machine = evt.getSource();
+		boolean hasGcode = editor.getBuild().getCode() != null;
 		boolean hasPlayback = (machine != null) && 
 			(machine.driver != null) &&
 			(machine.driver instanceof SDCardCapture) &&
 			(((SDCardCapture)machine.driver).hasFeatureSDCardCapture());
-		simButton.setEnabled(!building);
-		fileButton.setEnabled(!building);
-		buildButton.setEnabled(ready);
-		uploadButton.setEnabled(ready && hasPlayback);
+		simButton.setEnabled(!building && hasGcode);
+		fileButton.setEnabled(!building && hasGcode);
+		buildButton.setEnabled(ready && hasGcode);
+		uploadButton.setEnabled(ready && hasPlayback && hasGcode);
 		playbackButton.setEnabled(ready && hasPlayback);
 		pauseButton.setEnabled(building);
 		stopButton.setEnabled(building);
@@ -273,6 +277,21 @@ public class MainButtonPanel extends BGPanel implements MachineListener, ActionL
 		disconnectButton.setEnabled(connected);
 		connectButton.setEnabled(!connected);
 		cpButton.setEnabled(ready);
+		
+	}
+
+	public void updateFromMachine(final MachineController machine) {
+		MachineState s = new MachineState(MachineState.State.NOT_ATTACHED);
+		if (machine != null) {
+			s = machine.getMachineState();
+		}
+		updateFromState(s,machine);
+	}
+
+	public void machineStateChangedInternal(final MachineStateChangeEvent evt) {
+		MachineState s = evt.getState();
+		MachineController machine = evt.getSource();
+		updateFromState(s,machine);
 	}
 
 	public void machineProgress(MachineProgressEvent event) {

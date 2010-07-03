@@ -3,7 +3,8 @@
  */
 package replicatorg.app.ui;
 
-import java.awt.BorderLayout;
+import java.awt.Dimension;
+import java.awt.Font;
 import java.awt.GraphicsConfiguration;
 import java.awt.Point;
 import java.awt.event.ActionEvent;
@@ -13,10 +14,13 @@ import java.awt.event.KeyListener;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
 import java.awt.event.MouseMotionListener;
+import java.awt.event.MouseWheelEvent;
+import java.awt.event.MouseWheelListener;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.net.MalformedURLException;
 import java.util.Enumeration;
+import java.util.logging.Level;
 
 import javax.media.j3d.AmbientLight;
 import javax.media.j3d.Appearance;
@@ -38,12 +42,17 @@ import javax.media.j3d.Shape3D;
 import javax.media.j3d.Switch;
 import javax.media.j3d.Transform3D;
 import javax.media.j3d.TransformGroup;
+import javax.swing.ImageIcon;
 import javax.swing.JButton;
+import javax.swing.JLabel;
 import javax.swing.JPanel;
+import javax.swing.SwingConstants;
 import javax.vecmath.Color3f;
 import javax.vecmath.Point3d;
 import javax.vecmath.Vector3d;
 import javax.vecmath.Vector3f;
+
+import net.miginfocom.swing.MigLayout;
 
 import org.j3d.renderer.java3d.loaders.STLLoader;
 
@@ -85,38 +94,76 @@ public class STLPreviewPanel extends JPanel {
 	}
 	
 	MainWindow mainWindow;
-	
-	public STLPreviewPanel(final MainWindow mainWindow) {
-		this.mainWindow = mainWindow;
-		setLayout(new BorderLayout()); 
-		//setLayout(new MigLayout());
-		// Create Canvas3D and SimpleUniverse; add canvas to drawing panel
-		Canvas3D c = createUniverse();
-		add(c, BorderLayout.CENTER);
-		//add(c,"growx,growy,spanx,spany");
-		JButton sliceButton = new JButton("Slice");
+
+	public JButton createToolButton(String text, String iconPath) {
+		ImageIcon icon = new ImageIcon(Base.getImage(iconPath, this));
+		JButton button = new JButton(text,icon);
+		button.setVerticalTextPosition(SwingConstants.BOTTOM);
+		button.setHorizontalTextPosition(SwingConstants.CENTER);
+		return button;
+	}
+
+	public JPanel createToolPanel() {
+		JPanel panel = new JPanel(new MigLayout());
+
+		JButton resetViewButton = createToolButton("Reset view","images/look-at-object.png");
+		resetViewButton.addActionListener(new ActionListener() {
+			public void actionPerformed(ActionEvent arg0) {
+				resetView();
+			}
+		});
+		panel.add(resetViewButton,"growx,wrap");
+
+		JButton sliceButton = createToolButton("Generate GCode","images/model-to-gcode.png");
 		sliceButton.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent arg0) {
 				mainWindow.runToolpathGenerator();
 			}
 		});
-		add(sliceButton, BorderLayout.EAST);
+		panel.add(sliceButton,"growx,wrap");
+		String instrStr = Base.isMacOS()?
+				"<html><body>Drag to rotate<br>Shift-drag to pan<br>Mouse wheel to zoom</body></html>":
+				"<html><body>Left button drag to rotate<br>Right button drag to pan<br>Mouse wheel to zoom</body></html>";
+		JLabel instructions = new JLabel(instrStr);
+		Font f = instructions.getFont();
+		instructions.setFont(f.deriveFont((float)f.getSize()*0.8f));
+		panel.add(instructions,"growx,gaptop 20,wrap");
+		return panel;
+	}
+	
+	public STLPreviewPanel(final MainWindow mainWindow) {
+		this.mainWindow = mainWindow;
+		//setLayout(new MigLayout()); 
+		setLayout(new MigLayout("fill,ins 0,gap 0"));
+		// Create Canvas3D and SimpleUniverse; add canvas to drawing panel
+		Canvas3D c = createUniverse();
+		add(c, "growx,growy");
+		add(createToolPanel(),"dock east");
 		// Create the content branch and add it to the universe
 		BranchGroup scene = createSTLScene();
 		univ.addBranchGraph(scene);
 
-		class MouseActivityListener implements MouseMotionListener, MouseListener {
+		class MouseActivityListener implements MouseMotionListener, MouseListener, MouseWheelListener {
 			Point startPoint = null;
 			int button = 0;
 			
 			public void mouseDragged(MouseEvent e) {
 				if (startPoint == null) return;
 				Point p = e.getPoint();
-				if (button == MouseEvent.BUTTON1) {
+				boolean rotate;
+				boolean translate;
+				if (Base.isMacOS()) {
+					rotate = button == MouseEvent.BUTTON1 && !e.isShiftDown();
+					translate = button == MouseEvent.BUTTON1 && e.isShiftDown();
+				} else {
+					rotate = button == MouseEvent.BUTTON1;
+					translate = button == MouseEvent.BUTTON3;
+				}
+				if (rotate) {
 					// Rotate view
 					turntableAngle += 0.05 * (double)(p.x - startPoint.x);
 					elevationAngle -= 0.05 * (double)(p.y - startPoint.y);
-				} else if (button == MouseEvent.BUTTON3) {
+				} else if (translate) {
 					// Pan view
 					cameraTranslation.x += -0.05 * (double)(p.x - startPoint.x);
 					cameraTranslation.y += 0.05 * (double)(p.y - startPoint.y);
@@ -139,11 +186,17 @@ public class STLPreviewPanel extends JPanel {
 			public void mouseReleased(MouseEvent e) {
 				startPoint = null;
 			}
+			public void mouseWheelMoved(MouseWheelEvent e) {
+				int notches = e.getWheelRotation();				
+				cameraTranslation.z += 0.10 * notches;
+				updateVP();
+			}
 			
 		};
 
 		MouseActivityListener activityListener = new MouseActivityListener();
 		c.addMouseMotionListener(activityListener);
+		c.addMouseWheelListener(activityListener);
 		c.addMouseListener(activityListener);
 		
 		c.addKeyListener( new KeyListener() {
@@ -210,14 +263,22 @@ public class STLPreviewPanel extends JPanel {
 
 	public Node makeAmbientLight() {
 		AmbientLight ambient = new AmbientLight();
-		ambient.setColor(new Color3f(0.3f,0.3f,0.3f));
+		ambient.setColor(new Color3f(0.3f,0.3f,0.9f));
 		ambient.setInfluencingBounds(bounds);
 		return ambient;
 	}
 
-	public Node makeDirectedLight() {
+	public Node makeDirectedLight1() {
 		Color3f color = new Color3f(0.7f,0.7f,0.7f);
 		Vector3f direction = new Vector3f(1f,0.7f,-0.2f);
+		DirectionalLight light = new DirectionalLight(color,direction);
+		light.setInfluencingBounds(bounds);
+		return light;
+	}
+
+	public Node makeDirectedLight2() {
+		Color3f color = new Color3f(0.5f,0.5f,0.5f);
+		Vector3f direction = new Vector3f(-1f,-0.7f,0.2f);
 		DirectionalLight light = new DirectionalLight(color,direction);
 		light.setInfluencingBounds(bounds);
 		return light;
@@ -305,7 +366,7 @@ public class STLPreviewPanel extends JPanel {
 
 	private BoundingBox getBoundingBox(Shape3D shape) {
 		BoundingBox bb = null;
-		Enumeration geometries = shape.getAllGeometries();
+		Enumeration<?> geometries = shape.getAllGeometries();
 		while (geometries.hasMoreElements()) {
 			Geometry g = (Geometry)geometries.nextElement();
 			if (g instanceof GeometryArray) {
@@ -349,9 +410,10 @@ public class STLPreviewPanel extends JPanel {
 		objectSwitch.setWhichChild(0);
 		objectSwitch.setCapability(Switch.ALLOW_SWITCH_WRITE);
 
-		Color3f color = new Color3f(0.05f,1.0f,0.04f); 
+		//Color3f color = new Color3f(0.05f,1.0f,0.04f); 
+		Color3f color = new Color3f(1.0f,1.0f,1.0f); 
 		Material m = new Material();
-		//m.setAmbientColor(color);
+		m.setAmbientColor(color);
 		m.setDiffuseColor(color);
 		//m.setSpecularColor(new Color3f(1f,1f,1f));
 		Appearance solid = new Appearance();
@@ -395,7 +457,8 @@ public class STLPreviewPanel extends JPanel {
 		sceneGroup.setCapability(BranchGroup.ALLOW_CHILDREN_EXTEND);
 		sceneGroup.setCapability(BranchGroup.ALLOW_CHILDREN_WRITE);
 		sceneGroup.addChild(makeAmbientLight());
-		sceneGroup.addChild(makeDirectedLight());
+		sceneGroup.addChild(makeDirectedLight1());
+		sceneGroup.addChild(makeDirectedLight2());
 		sceneGroup.addChild(makeBoundingBox());
 		sceneGroup.addChild(makeBackground());
 		sceneGroup.addChild(makeBaseGrid());
@@ -420,10 +483,21 @@ public class STLPreviewPanel extends JPanel {
 	}
 
 	// These values were determined experimentally to look pretty dang good.
-	Vector3d cameraTranslation = new Vector3d(0,0.4,2.5);
-	double elevationAngle = 1.278;
-	double turntableAngle = 0.214;
+	final static Vector3d CAMERA_TRANSLATION_DEFAULT = new Vector3d(0,0.4,2.9);
+	final static double ELEVATION_ANGLE_DEFAULT = 1.278;
+	final static double TURNTABLE_ANGLE_DEFAULT = 0.214;
+	
+	Vector3d cameraTranslation = new Vector3d(CAMERA_TRANSLATION_DEFAULT);
+	double elevationAngle = ELEVATION_ANGLE_DEFAULT;
+	double turntableAngle = TURNTABLE_ANGLE_DEFAULT;
 
+	private void resetView() {
+		cameraTranslation = new Vector3d(CAMERA_TRANSLATION_DEFAULT);
+		elevationAngle = ELEVATION_ANGLE_DEFAULT;
+		turntableAngle = TURNTABLE_ANGLE_DEFAULT;
+		updateVP();
+	}
+	
 	private void updateVP() {
 		TransformGroup viewTG = univ.getViewingPlatform().getViewPlatformTransform();
 		Transform3D t3d = new Transform3D();
@@ -437,6 +511,11 @@ public class STLPreviewPanel extends JPanel {
 		t3d.mul(rotX);
 		t3d.mul(trans);
 		viewTG.setTransform(t3d);
+
+		if (Base.logger.isLoggable(Level.FINE)) {
+			Base.logger.fine("Camera Translation: "+cameraTranslation.toString());
+			Base.logger.fine("Elevation "+Double.toString(elevationAngle)+", turntable "+Double.toString(turntableAngle));
+		}
 	}
 
 	private Canvas3D createUniverse() {
@@ -445,7 +524,12 @@ public class STLPreviewPanel extends JPanel {
 			SimpleUniverse.getPreferredConfiguration();
 
 		// Create a Canvas3D using the preferred configuration
-		Canvas3D c = new Canvas3D(config);
+		Canvas3D c = new Canvas3D(config) {
+			public Dimension getMinimumSize()
+		    {
+		        return new Dimension(0, 0);
+		    }
+		};
 
 		// Create simple universe with view branch
 		univ = new SimpleUniverse(c);
