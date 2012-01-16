@@ -201,7 +201,7 @@ public class ControlPanelWindow extends JFrame implements
 	protected JComponent createActivationPanel() {
 		JPanel activationPanel = new JPanel();
 		activationPanel.setBorder(BorderFactory
-				.createTitledBorder("Stepper Motor Control"));
+				.createTitledBorder("Stepper Motor Controls"));
 		activationPanel.setLayout(new BoxLayout(activationPanel,
 				BoxLayout.LINE_AXIS));
 

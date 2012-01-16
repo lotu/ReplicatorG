@@ -57,6 +57,7 @@ import java.io.File;
 import java.io.IOException;
 import java.util.Collections;
 import java.util.Date;
+import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Vector;
@@ -65,7 +66,6 @@ import java.util.prefs.BackingStoreException;
 
 import javax.swing.AbstractAction;
 import javax.swing.Action;
-import javax.swing.BoxLayout;
 import javax.swing.JCheckBoxMenuItem;
 import javax.swing.JComponent;
 import javax.swing.JDialog;
@@ -96,9 +96,12 @@ import javax.swing.undo.CannotUndoException;
 import javax.swing.undo.CompoundEdit;
 import javax.swing.undo.UndoManager;
 
+import net.miginfocom.swing.MigLayout;
+
 import org.w3c.dom.Document;
 
 import replicatorg.app.Base;
+import replicatorg.app.MRUList;
 import replicatorg.app.MachineController;
 import replicatorg.app.MachineFactory;
 import replicatorg.app.Serial;
@@ -133,9 +136,11 @@ import com.apple.mrj.MRJOpenDocumentHandler;
 import com.apple.mrj.MRJPrefsHandler;
 import com.apple.mrj.MRJQuitHandler;
 
+@SuppressWarnings("deprecation")
 public class MainWindow extends JFrame implements MRJAboutHandler, MRJQuitHandler,
 		MRJPrefsHandler, MRJOpenDocumentHandler,
-		MachineListener, ChangeListener
+		MachineListener, ChangeListener,
+		ToolpathGenerator.GeneratorListener
 {
 	/**
 	 * 
@@ -144,12 +149,6 @@ public class MainWindow extends JFrame implements MRJAboutHandler, MRJQuitHandle
 
 	static final String WINDOW_TITLE = "ReplicatorG" + " - "
 			+ Base.VERSION_NAME;
-
-	// List of most recently opened files names.
-	List<String> mruFiles;
-
-	// Preference key name
-	final static String MRU_LIST_KEY = "mru_list";
 
 	final static String MODEL_TAB_KEY = "MODEL";
 	final static String GCODE_TAB_KEY = "GCODE";
@@ -235,6 +234,8 @@ public class MainWindow extends JFrame implements MRJAboutHandler, MRJQuitHandle
 
 	FindReplace find;
 
+	public Build getBuild() { return build; }
+	
 	private STLPreviewPanel getStlPanel() {
 		if (stlPanel == null) {
 			stlPanel = new STLPreviewPanel(this);
@@ -243,23 +244,18 @@ public class MainWindow extends JFrame implements MRJAboutHandler, MRJQuitHandle
 		return stlPanel;
 	}
 	
+	private MRUList mruList;
+	
 	public MainWindow() {
 		super(WINDOW_TITLE);
 		setLocationByPlatform(true);
-		// #@$*(@#$ apple.. always gotta think different
 		MRJApplicationUtils.registerAboutHandler(this);
 		MRJApplicationUtils.registerPrefsHandler(this);
 		MRJApplicationUtils.registerQuitHandler(this);
 		MRJApplicationUtils.registerOpenDocumentHandler(this);
 
 		// load up the most recently used files list
-		String mruString = Base.preferences.get(MRU_LIST_KEY,null);
-		mruFiles = new LinkedList<String>();
-		if (mruString != null && mruString.length() != 0) {
-			for (String entry : mruString.split(",")) {
-				addMRUEntry(entry);
-			}
-		}
+		mruList = MRUList.getMRUList();
 
 		// set the window icon
 		icon = Base.getImage("images/icon.gif", this);
@@ -285,18 +281,18 @@ public class MainWindow extends JFrame implements MRJAboutHandler, MRJQuitHandle
 		menubar.add(buildHelpMenu());
 
 		setJMenuBar(menubar);
-
+		
 		Container pane = getContentPane();
-		BoxLayout layout = new BoxLayout(pane,BoxLayout.Y_AXIS);
+		MigLayout layout = new MigLayout("nocache,fill,flowy,gap 0 0,ins 0");
 		pane.setLayout(layout);
 
 		buttons = new MainButtonPanel(this);	
-		pane.add(buttons);
+		pane.add(buttons,"growx,dock north");
 		
 		machineStatusPanel = new MachineStatusPanel();
-		pane.add(machineStatusPanel);
+		pane.add(machineStatusPanel,"growx,dock north");
 
-		pane.add(header);
+		pane.add(header,"growx,dock north");
 		
 		textarea = new JEditTextArea(new PdeTextAreaDefaults());
 		textarea.setRightClickPopup(new TextAreaPopup());
@@ -311,8 +307,8 @@ public class MainWindow extends JFrame implements MRJAboutHandler, MRJQuitHandle
 				console);
 
 		//splitPane.setOneTouchExpandable(true);
-		// repaint child panes while resizing
-		splitPane.setContinuousLayout(true);
+		// repaint child panes while resizing: a little heavyweight
+		// splitPane.setContinuousLayout(true);
 		// if window increases in size, give all of increase to
 		// the textarea in the uppper pane
 		splitPane.setResizeWeight(0.8);
@@ -329,8 +325,7 @@ public class MainWindow extends JFrame implements MRJAboutHandler, MRJQuitHandle
 		}
 
 		splitPane.setPreferredSize(new Dimension(400,500));
-		pane.add(splitPane);
-
+		pane.add(splitPane,"growx,growy,shrinkx,shrinky");
 		pack();
 		
 		textarea.setTransferHandler(new TransferHandler() {
@@ -351,9 +346,9 @@ public class MainWindow extends JFrame implements MRJAboutHandler, MRJQuitHandle
 						// System.out.println(flavors[i]);
 						// System.out.println(transferable.getTransferData(flavors[i]));
 						Object stuff = transferable.getTransferData(flavors[i]);
-						if (!(stuff instanceof java.util.List))
+						if (!(stuff instanceof java.util.List<?>))
 							continue;
-						java.util.List list = (java.util.List) stuff;
+						java.util.List<?> list = (java.util.List<?>) stuff;
 
 						for (int j = 0; j < list.size(); j++) {
 							Object item = list.get(j);
@@ -408,12 +403,15 @@ public class MainWindow extends JFrame implements MRJAboutHandler, MRJQuitHandle
 			if (openBehavior == InitialOpenBehavior.OPEN_NEW) {
 				handleNew2(true);				
 			} else {
-				String sketchPath = Base.preferences.get("last.sketch.path",null);
-				// Sketch sketchTemp = new Sketch(sketchPath);
-
-				if ((sketchPath != null) && (new File(sketchPath)).exists()) {
-					// don't check modified because nothing is open yet
-					handleOpen2(sketchPath);
+				// Get last path opened; MRU keeps this.
+				Iterator<String> i = mruList.iterator();
+				if (i.hasNext()) {
+					String lastOpened = i.next();
+					if (new File(lastOpened).exists()) {
+						handleOpen2(lastOpened);
+					} else {
+						handleNew2(true);
+					}
 				} else {
 					handleNew2(true);
 				}
@@ -495,7 +493,6 @@ public class MainWindow extends JFrame implements MRJAboutHandler, MRJQuitHandle
 		int location = splitPane.getDividerLocation();
 		Base.preferences.putInt("last.divider.location", location);
 
-		saveMRUPrefs();
 		try {
 			Base.preferences.flush();
 		} catch (BackingStoreException bse) {
@@ -507,22 +504,11 @@ public class MainWindow extends JFrame implements MRJAboutHandler, MRJQuitHandle
 	
 	public void runToolpathGenerator() {
 		ToolpathGenerator generator = new SkeinforgeGenerator();
-		ToolpathGeneratorThread tgt = new ToolpathGeneratorThread(this.getRootPane(), generator, build);
+		ToolpathGeneratorThread tgt = new ToolpathGeneratorThread(this, generator, build);
+		tgt.addListener(this);
 		tgt.start();
-		System.err.println("running tp gen");
 	}
-	
-
-	private void saveMRUPrefs() {
-		StringBuffer sb = new StringBuffer();
-		for (String s : mruFiles) {
-			if (sb.length() != 0)
-				sb.append(",");
-			sb.append(s);
-		}
-		Base.preferences.put(MRU_LIST_KEY, sb.toString());		
-	}
-	
+		
 	// ...................................................................
 
 	private JMenu serialMenu = null;
@@ -606,9 +592,9 @@ public class MainWindow extends JFrame implements MRJAboutHandler, MRJQuitHandle
 				handleOpen(path);
 			}
 		}
-		if (mruFiles != null && !mruFiles.isEmpty()) {
+		if (mruList != null) {
 			int index = 0;
-			for (String fileName : mruFiles) {
+			for (String fileName : mruList) {
 				String entry = Integer.toString(index) + ". "
 						+ fileName.substring(fileName.lastIndexOf('/') + 1);
 				JMenuItem item = new JMenuItem(entry, KeyEvent.VK_0 + index);
@@ -660,7 +646,6 @@ public class MainWindow extends JFrame implements MRJAboutHandler, MRJQuitHandle
 
 		menu.addSeparator();
 
-		menu.addSeparator();
 		mruMenu = new JMenu("Recent");
 		reloadMruMenu();
 		menu.add(mruMenu);
@@ -1271,7 +1256,9 @@ public class MainWindow extends JFrame implements MRJAboutHandler, MRJQuitHandle
 	}
 
 	public void setModel(BuildModel model) {
-		getStlPanel().setModel(model);
+		if (model != null) {
+			getStlPanel().setModel(model);
+		}
 	}
 	
 	public void beginCompoundEdit() {
@@ -1392,16 +1379,29 @@ public class MainWindow extends JFrame implements MRJAboutHandler, MRJQuitHandle
 
 	// We can drop this in Java 6, which already has an equivalent
 	private class ExtensionFilter extends FileFilter {
-		private String extension;
+		private LinkedList<String> extensions = new LinkedList<String>();
 		private String description;
 		public ExtensionFilter(String extension,String description) { 
-			this.extension = extension;
+			this.extensions.add(extension);
 			this.description = description;
 		}
+		public ExtensionFilter(String[] extensions,String description) {
+			for (String e : extensions) {
+				this.extensions.add(e);
+			}
+			this.description = description;
+		}
+		
 		public boolean accept(File f) {
 			if (f.isDirectory()) { return !f.isHidden(); }
-			return f.getPath().toLowerCase().endsWith(extension);
+			for (String extension : extensions) {
+				if (f.getPath().toLowerCase().endsWith(extension)) {
+					return true;
+				}
+			}
+			return false;
 		}
+		
 		public String getDescription() {
 			return description;
 		}
@@ -1867,7 +1867,9 @@ public class MainWindow extends JFrame implements MRJAboutHandler, MRJQuitHandle
 		if (loadDir != null) { directory = new File(loadDir); }
 		JFileChooser fc = new JFileChooser(directory);
 		FileFilter defaultFilter;
-		fc.addChoosableFileFilter(defaultFilter = new ExtensionFilter(".gcode","GCode files"));
+		String[] extensions = {".gcode",".stl"};
+		fc.addChoosableFileFilter(defaultFilter = new ExtensionFilter(extensions,"GCode or STL files"));
+		fc.addChoosableFileFilter(new ExtensionFilter(".gcode","GCode files"));
 		fc.addChoosableFileFilter(new ExtensionFilter(".stl","STL files"));
 		fc.setAcceptAllFileFilterUsed(true);
 		fc.setFileFilter(defaultFilter);
@@ -1928,6 +1930,10 @@ public class MainWindow extends JFrame implements MRJAboutHandler, MRJQuitHandle
 	 * modifications (if any) to the previous sketch need to be saved.
 	 */
 	protected void handleOpen2(String path) {
+		if (path != null && !new File(path).exists()) {
+			JOptionPane.showMessageDialog(this, "The file "+path+" could not be found.", "File not found", JOptionPane.ERROR_MESSAGE);
+			return;
+		}
 		try {
 			setCursor(Cursor.getPredefinedCursor(Cursor.WAIT_CURSOR));
 			// loading may take a few moments for large files
@@ -1938,7 +1944,7 @@ public class MainWindow extends JFrame implements MRJAboutHandler, MRJQuitHandle
 			header.setBuild(build);
 			if (null != path) {
 				handleOpenPath = path;
-				addMRUEntry(path);
+				mruList.update(path);
 				reloadMruMenu();
 			}
 			if (Base.preferences.getBoolean("console.auto_clear",false)) {
@@ -1949,17 +1955,6 @@ public class MainWindow extends JFrame implements MRJAboutHandler, MRJQuitHandle
 		} finally {
 			this.setCursor(Cursor.getDefaultCursor());
 		}
-	}
-
-	/**
-	 * Add a path to the MRU list
-	 */
-	void addMRUEntry(String path) {
-		File f = new File(path);
-		String absPath = f.getAbsolutePath();
-		mruFiles.remove(absPath);
-		mruFiles.add(0,absPath);
-		saveMRUPrefs();
 	}
 
 	/**
@@ -2290,7 +2285,7 @@ public class MainWindow extends JFrame implements MRJAboutHandler, MRJQuitHandle
 					machine.connect();
 				} catch (SerialException e) {
 					Base.logger.severe("Could not use/find serial port specified in machines.xml ("+us.getPortName()+").");
-					setMachine(null); // Revert to null state
+					return;
 				}
 			} else {
 				String lastPort = Base.preferences.get("serial.last_selected", null);
@@ -2302,7 +2297,7 @@ public class MainWindow extends JFrame implements MRJAboutHandler, MRJQuitHandle
 						Base.logger.log(Level.WARNING,
 								"Could not use most recently selected serial port ("+lastPort+").",
 								e);
-						setMachine(null); // Revert to null state
+						return;
 					}
 				}
 			}
@@ -2322,5 +2317,21 @@ public class MainWindow extends JFrame implements MRJAboutHandler, MRJQuitHandle
 		} else {
 			((CardLayout)cardPanel.getLayout()).show(cardPanel, GCODE_TAB_KEY);
 		}
+	}
+
+	public void generationComplete(Completion completion, Object details) {
+		// if success, update header and switch to code
+		if (completion == Completion.SUCCESS) {
+			if (build.getCode() != null) {
+				setCode(build.getCode());
+			}
+			buttons.updateFromMachine(machine);
+			header.setBuild(build);
+			header.repaint();
+		}
+	}
+
+	public void updateGenerator(String message) {
+		// ignore
 	}
 }

@@ -1200,7 +1200,9 @@ class FillSkein:
 		self.doubleSolidSurfaceThickness = self.solidSurfaceThickness + self.solidSurfaceThickness
 		for lineIndex in xrange( self.lineIndex, len( self.lines ) ):
 			self.parseLine( lineIndex )
-		for layerIndex in xrange( len( self.rotatedLayers ) ):
+		layerCount = len(self.rotatedLayers)
+		for layerIndex in xrange( layerCount ):
+			print "Filling layer "+str(layerIndex)+"/"+str(layerCount)+"..."
 			self.addFill( layerIndex )
 		self.addShutdownToOutput()
 

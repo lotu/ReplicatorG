@@ -32,7 +32,7 @@ getUnpauseChainGcode in unpause.py to unpause the text; once they have the unpau
 > python export.py
 This brings up the dialog, after clicking 'Export', the following is printed:
 File Screw Holder Bottom.stl is being chain exported.
-The exported file is saved as Screw Holder Bottom_export.gcode
+The exported file is saved as Screw Holder Bottom.gcode
 
 
 >python
@@ -47,7 +47,7 @@ This brings up the export dialog.
 >>> export.writeOutput()
 Screw Holder Bottom.stl
 File Screw Holder Bottom.stl is being chain exported.
-The exported file is saved as Screw Holder Bottom_export.gcode
+The exported file is saved as Screw Holder Bottom.gcode
 
 """
 
@@ -110,6 +110,12 @@ def getSelectedPlugin( exportPreferences ):
 			return gcodec.getModule( plugin.name, 'export_plugins', __file__ )
 	return None
 
+def getStartText():
+	return preferences.getFileInGivenPreferencesDirectory( os.path.dirname( __file__ ), preferences.startFile )
+
+def getEndText():
+	return preferences.getFileInGivenPreferencesDirectory( os.path.dirname( __file__ ), preferences.endFile )
+
 def writeOutput( fileName = '' ):
 	"""Export a gcode linear move file.  Chain export the gcode if it is not already exported.
 	If no fileName is specified, export the first unmodified gcode file in this folder."""
@@ -123,14 +129,19 @@ def writeOutput( fileName = '' ):
 	preferences.readPreferences( exportPreferences )
 	startTime = time.time()
 	print( 'File ' + gcodec.getSummarizedFilename( fileName ) + ' is being chain exported.' )
-	suffixFilename = fileName[ : fileName.rfind( '.' ) ] + '_export.' + exportPreferences.fileExtension.value
+	suffixFilename = fileName[ : fileName.rfind( '.' ) ] + '.' + exportPreferences.fileExtension.value
 	gcodeText = gcodec.getGcodeFileText( fileName, '' )
 	if not gcodec.isProcedureDone( gcodeText, 'unpause' ):
 		gcodeText = unpause.getUnpauseChainGcode( fileName, gcodeText )
 	if gcodeText == '':
 		return
+
+	# Now prepend the start file and append the end file
+	gcodeText = getStartText() + gcodeText + getEndText()
+
 	analyze.writeOutput( suffixFilename, gcodeText )
 	exportChainGcode = getExportGcode( gcodeText, exportPreferences )
+
 	replacableExportChainGcode = None
 	selectedPluginModule = getSelectedPlugin( exportPreferences )
 	if selectedPluginModule == None:

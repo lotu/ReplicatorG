@@ -20,11 +20,9 @@ import javax.swing.AbstractAction;
 import javax.swing.ButtonGroup;
 import javax.swing.JButton;
 import javax.swing.JCheckBox;
-import javax.swing.JComponent;
 import javax.swing.JFormattedTextField;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
-import javax.swing.JPanel;
 import javax.swing.JRadioButton;
 import javax.swing.JTextField;
 import javax.swing.KeyStroke;
@@ -82,31 +80,30 @@ public class PreferencesWindow extends JFrame implements GuiConstants {
 		    public RadioAction(String text, InitialOpenBehavior behavior) {
 		    	super(text);
 		    	this.behavior = behavior;
-		    	if (behavior == openBehavior) {
-		    		putValue(SELECTED_KEY, new Boolean(true));
-		    	}
 		    }
 		    public void actionPerformed(ActionEvent e) {
 		    	Base.preferences.putInt(prefName,behavior.ordinal());
 		    }
 		}
 		c.add(new JLabel("On ReplicatorG launch:"),"wrap");
+		// We don't have SELECTED_KEY in Java 1.5, so we'll do things the old-fashioned, ugly way.
 		JRadioButton b;
 		b = new JRadioButton(new RadioAction("Open last opened or save file",InitialOpenBehavior.OPEN_LAST));
+    	if (InitialOpenBehavior.OPEN_LAST == openBehavior) { b.setSelected(true); }
 		bg.add(b);
 		c.add(b,"wrap");
 		b = new JRadioButton(new RadioAction("Open new file",InitialOpenBehavior.OPEN_NEW));
+    	if (InitialOpenBehavior.OPEN_NEW == openBehavior) { b.setSelected(true); }
 		bg.add(b);
 		c.add(b,"wrap");
 	}
 	
 	public PreferencesWindow() {
 		super("Preferences");
-		setResizable(false);
+		setResizable(true);
 
-		JComponent content = new JPanel(new MigLayout());
-
-		// MainWindow font size [ ]
+		Container content = this.getContentPane();
+		content.setLayout(new MigLayout("fill"));
 
 		content.add(new JLabel("MainWindow font size: "), "split");
 		fontSizeField = new JTextField(4);
@@ -116,7 +113,7 @@ public class PreferencesWindow extends JFrame implements GuiConstants {
 		addCheckboxForPref(content,"Monitor temperature during builds","build.monitor_temp",false);
 		addCheckboxForPref(content,"Honor serial port selection in machines.xml","serial.use_machines",true);
 		addCheckboxForPref(content,"Show experimental machine profiles","machine.showExperimental",false);
-		addCheckboxForPref(content,"Show simulator during builds","build.showSimulator",true);
+		addCheckboxForPref(content,"Show simulator during builds","build.showSimulator",false);
 
 		content.add(new JLabel("Firmware update URL: "),"split");
 		firmwareUpdateUrlField = new JTextField(34);
@@ -128,10 +125,10 @@ public class PreferencesWindow extends JFrame implements GuiConstants {
 			JFormattedTextField arcResolutionField = new JFormattedTextField(new Double(value));
 			content.add(arcResolutionField,"wrap");
 			String arcResolutionHelp = "<html><small><em>" +
-				"The arc resolution is the default segment length that the gcode parser will break arc codes "+
+				"The arc resolution is the default segment length that the gcode parser will break arc codes <br>"+
 				"like G2 and G3 into.  Drivers that natively handle arcs will ignore this setting." +
 				"</em></small></html>";
-			content.add(new JLabel(arcResolutionHelp),"width 100,growx,wrap");
+			content.add(new JLabel(arcResolutionHelp),"growx,wrap");
 			arcResolutionField.setColumns(10);
 			arcResolutionField.addPropertyChangeListener(new PropertyChangeListener() {
 				public void propertyChange(PropertyChangeEvent evt) {
@@ -192,7 +189,6 @@ public class PreferencesWindow extends JFrame implements GuiConstants {
 		};
 		Base.registerWindowCloseKeys(getRootPane(), disposer);
 
-		add(content);
 		pack();
 		Dimension screen = Toolkit.getDefaultToolkit().getScreenSize();
 		setLocation((screen.width - getWidth()) / 2,

@@ -34,6 +34,7 @@ import java.awt.Component;
 import java.awt.FileDialog;
 import java.awt.Font;
 import java.awt.Frame;
+import java.awt.Image;
 import java.awt.MediaTracker;
 import java.awt.Toolkit;
 import java.awt.event.ActionListener;
@@ -96,7 +97,7 @@ public class Base {
 	/**
 	 * The version number of this edition of replicatorG.
 	 */
-	public static final int VERSION = 16;
+	public static final int VERSION = 17;
 	/**
 	 * The textual representation of this version (4 digits, zero padded).
 	 */
@@ -176,7 +177,7 @@ public class Base {
 
 		// make sure that this is running on java 1.5 or better.
 		if (Base.javaVersion < 1.5f) {
-			Base.showError("Need to install Java 1.5",
+			Base.quitWithError("Need to install Java 1.5",
 					"This version of ReplicatorG requires\n"
 							+ "Java 1.5 or later to run properly.\n"
 							+ "Please visit java.com to upgrade.", null);
@@ -188,6 +189,19 @@ public class Base {
 			Base.openedAtStartup = args[0];
 		}
 		
+		// Warn about read-only directories
+    	{
+    		File userDir = new File(System.getProperty("user.dir"));
+    		if (!userDir.canWrite()) {
+    			Base.showMessage("Running in read-only directory", 
+    					"<html><body>ReplicatorG is running in a read-only directory.<br>" +
+    					"Some functions of ReplicatorG, like toolpath generation and firmware updates,<br>" +
+    					"require ReplicatorG to be run from a writable directory.  You may want to end this<br>"+
+    					"session, copy ReplicatorG to a writeable directory, and start it again."
+    					);
+    		}
+    	}
+
 		// Start the firmware check thread.
 		FirmwareUploader.checkFirmware();
 		
@@ -637,10 +651,10 @@ public class Base {
 
 	/**
 	 * Show an error message that's actually fatal to the program. This is an
-	 * error that can't be recovered. Use showWarning() for errors that allow P5
-	 * to continue running.
+	 * error that can't be recovered. Use showWarning() for errors that allow 
+	 * ReplicatorG to continue running.
 	 */
-	static public void showError(String title, String message, Throwable e) {
+	static public void quitWithError(String title, String message, Throwable e) {
 		if (title == null)
 			title = "Error";
 		JOptionPane.showMessageDialog(new Frame(), message, title,
@@ -672,6 +686,28 @@ public class Base {
 		}
 	}
 
+	/**
+	 * We need to load animated .gifs through this mechanism vs. getImage due to
+	 * a number of bugs in Java's image loading routines.
+	 * @param name The path of the image
+	 * @param who The component that will use the image
+	 * @return the loaded image object
+	 */
+	static public Image getDirectImage(String name, Component who)  {
+		Image image = null;
+
+		// try to get the URL as a system resource
+	    URL url = ClassLoader.getSystemResource(name);
+	    try {
+	    	image = Toolkit.getDefaultToolkit().createImage(url);
+	    	MediaTracker tracker = new MediaTracker(who);
+	    	tracker.addImage(image, 0);
+			tracker.waitForAll();
+		} catch (InterruptedException e) {
+		}
+		return image;
+	}
+
 	static public BufferedImage getImage(String name, Component who) {
 		BufferedImage image = null;
 
@@ -699,22 +735,6 @@ public class Base {
 
 	// ...................................................................
 
-	static public byte[] grabFile(File file) throws IOException {
-		int size = (int) file.length();
-		FileInputStream input = new FileInputStream(file);
-		byte buffer[] = new byte[size];
-		int offset = 0;
-		int bytesRead;
-		while ((bytesRead = input.read(buffer, offset, size - offset)) != -1) {
-			offset += bytesRead;
-			if (bytesRead == 0)
-				break;
-		}
-		input.close(); // weren't properly being closed
-		input = null;
-		return buffer;
-	}
-
 	static public void copyFile(File afile, File bfile) throws IOException {
 		InputStream from = new BufferedInputStream(new FileInputStream(afile));
 		OutputStream to = new BufferedOutputStream(new FileOutputStream(bfile));
@@ -739,6 +759,7 @@ public class Base {
 	 * Grab the contents of a file as a string.
 	 */
 	static public String loadFile(File file) throws IOException {
+		System.err.println("Load file : "+file.getAbsolutePath());
 		// empty code file.. no worries, might be getting filled up later
 		if (file.length() == 0)
 			return "";
